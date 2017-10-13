@@ -51,7 +51,7 @@ module ActiveRecord::Import::SQLServerAdapter
       end
     end
 
-    [number_of_inserts, []]
+    ActiveRecord::Import::Result.new([], number_of_inserts, [], [])
   end
 
   def max_allowed_packet
