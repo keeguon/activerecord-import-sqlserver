@@ -8,13 +8,10 @@ module ActiveRecord::Import::SQLServerAdapter
       [sql.shift, sql.join( ' ' )]
     end
 
-    columns_names = base_sql.match(/INSERT INTO (\[.*\]) (\(.*\)) VALUES /)[2][1..-1].split(',')
-    sql_id_index  = columns_names.index('[id]')
-    sql_noid      = if sql_id_index.nil?
-      nil
-    else
-      (sql_id_index == (columns_names.length - 1) ? base_sql.clone.gsub(/\[id\]/, '') : base_sql.clone.gsub(/\[id\],/, ''))
-    end
+    column_override = get_identity_column_name options
+    columns_names = parse_column_names_from_sql base_sql
+    sql_id_index  = columns_names.index("[#{column_override}]")
+    sql_noid      = get_sql_noid sql_id_index, columns_names, base_sql, column_override
 
     max = max_allowed_packet
 
@@ -25,7 +22,7 @@ module ActiveRecord::Import::SQLServerAdapter
         supplied_ids = []
 
         batch.each do |value|
-          values_sql = value[1..-2].split(',')
+          values_sql = values_to_array(value)
           if values_sql[sql_id_index] == "NULL"
             values_sql.delete_at(sql_id_index)
             null_ids << "(#{values_sql.join(',')})"
@@ -57,4 +54,44 @@ module ActiveRecord::Import::SQLServerAdapter
   def max_allowed_packet
     1000
   end
+
+  def get_identity_column_name( options )
+    options[:id_column_name] || 'id'
+  end
+
+  def get_sql_noid(sql_id_index, columns_names, base_sql, column_override)
+    if sql_id_index.nil?
+      nil
+    else
+      (sql_id_index == (columns_names.length - 1) ? base_sql.clone.gsub(/,\[#{column_override}\]/, '') : base_sql.clone.gsub(/\[#{column_override}\],/, ''))
+    end
+  end
+
+  # This can be removed, it's just here to show the old way and compare with the new way
+  def get_sql_noid_OLD(sql_id_index, columns_names, base_sql, column_override)
+    if sql_id_index.nil?
+      nil
+    else
+      (sql_id_index == (columns_names.length - 1) ? base_sql.clone.gsub(/\[id\]/, '') : base_sql.clone.gsub(/\[id\],/, ''))
+    end
+  end
+
+  def parse_column_names_from_sql( sql )
+    sql.match(/(?<=\().*(?=\).*VALUES)/)[0].split(',')
+  end
+
+  # This can be removed, it's just here to show the old way and compare with the new way
+  def parse_column_names_from_sql_OLD( sql )
+    sql.match(/INSERT INTO (\[.*\]) (\(.*\)) VALUES /)[2][1..-1].split(',')
+  end
+
+  def values_to_array( value )
+    value[1..-2].scan(/N\'.*?\'|[^,]+/)
+  end
+
+  # This can be removed, it's just here to show the old way and compare with the new way
+  def values_to_array_OLD( value )
+    value[1..-2].split(',')
+  end
+
 end
