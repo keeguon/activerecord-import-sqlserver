@@ -1,6 +1,10 @@
 module ActiveRecord::Import::SQLServerAdapter
   include ActiveRecord::Import::ImportSupport
 
+  def supports_on_duplicate_key_update?
+    false
+  end
+
   def insert_many( sql, values, options = {}, *args )
     base_sql, post_sql = if sql.is_a?( String )
       [sql, '']
